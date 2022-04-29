@@ -66,6 +66,9 @@ function changeCitations(url) {
             order doesn't matter, just try and decode all of the fields w/ check
         count uses of each citation in block 2?
             no point in this
+        add version number
+        change format of bib links
+        move to async?
         
         things to fix:
             linebreak with issn
@@ -107,13 +110,14 @@ function changeCitations(url) {
         bookmarkList = getBibCitations(context, xmlDOM); // returns object with {ENREF: citation text}
         citationMatching = findMatchingCitation(context, citationList, bookmarkList); // object with {ENREF: citation list index}
         assignHeroLinks(context, url, linkRanges, citationMatching, citationList);
-        bibSearch = searchForBibText(context, body, bookmarkList); // search for text ranges based on citation text
+        bibSearch = searchForBibText(context, body, bookmarkList, citationMatching); // search for text ranges based on citation text
         document.getElementById("progress-text").innerHTML = "Adding links in bibliography...";
 
         return context.sync();
       })
       .then(function () {
         // split up text ranges
+
         bibSearch2 = organizeBibText(context, bibSearch);
         return context.sync();
       })
@@ -210,6 +214,7 @@ function changeFirstBibEntry(context, url, oParser, oldXML, bookmarkList, citati
 
   var runningCount = 0;
   var parenCount = 0;
+
   for (var j = 0; j < citeSplit.length; j++) {
     var searchMatch = citeSplit[j];
     if (searchMatch.includes("(")) {
@@ -279,9 +284,8 @@ function changeFirstBibEntry(context, url, oParser, oldXML, bookmarkList, citati
         "</w:t></w:r>" +
         '<w:r><w:fldChar w:fldCharType="end"/></w:r>';
 
-      var splitMatch = oldXML.match(/<w:bookmarkStart w:id="\d" w:name="_ENREF_1"\/>/);
+      var splitMatch = oldXML.match(/<w:bookmarkStart w:id="\d+" w:name="_ENREF_1"\/>/);
       if (!splitMatch) {
-        document.getElementById("error-box").innerHTML += "OH NO";
         continue;
       }
       var splitStr = splitMatch[0];
@@ -293,8 +297,6 @@ function changeFirstBibEntry(context, url, oParser, oldXML, bookmarkList, citati
       continue;
     }
   }
-
-  // document.getElementById("error-box").innerHTML += citationText + "<br><br>";
 
   if (finalXMLstr.length == 0) {
     document.getElementById("error-box").innerHTML +=
@@ -326,6 +328,7 @@ function writeBibLinks(context, url, bibSearch3, citationMatching, citationList)
 function findBibTextToLink(context, bibSearch2) {
   // find ranges to change into hyperlinks
   var bibSearch3 = new Object();
+
   for (var ref in bibSearch2) {
     if (!Object.prototype.hasOwnProperty.call(bibSearch2, ref)) {
       continue;
@@ -350,7 +353,7 @@ function findBibTextToLink(context, bibSearch2) {
         if (searchMatch.text.length < 4) {
           continue;
         }
-        if (searchMatch.text.match(/[(][^)]{4,}[)][.]/)) {
+        if (searchMatch.text.match(/[(][^)]{4,}[a-z]?[)][.]?/)) {
           break;
         }
         if (j > 4) {
@@ -398,7 +401,7 @@ function organizeBibText(context, bibSearch) {
   return bibSearch2;
 }
 
-function searchForBibText(context, body, bookmarkList) {
+function searchForBibText(context, body, bookmarkList, citationMatching) {
   /*
     now we have an object with {label: citation text}
     we need to search the text for (citation text), get the part to underline, and assign a hyperlink
@@ -406,6 +409,9 @@ function searchForBibText(context, body, bookmarkList) {
   var searchList = new Object();
   for (var ref in bookmarkList) {
     if (!Object.prototype.hasOwnProperty.call(bookmarkList, ref)) {
+      continue;
+    }
+    if (!Object.prototype.hasOwnProperty.call(citationMatching, ref)) {
       continue;
     }
     if (ref == "#_ENREF_1") {
@@ -426,6 +432,7 @@ function assignHeroLinks(context, url, linkRanges, citationMatching, citationLis
 
     if (oldURL in citationMatching && oldURL != oldText) {
       var newURL = getURL(url, citationList[citationMatching[oldURL]].label);
+
       linkRanges.items[n].hyperlink = newURL;
     } else {
       var changedURL = changeURL(url, oldURL);
@@ -598,14 +605,10 @@ function getCitationList(context, xmlDOM) {
   if (extraGet.length > 0) {
     decodeList.push(extraGet[0].textContent);
   }
-  var sameCt = 1;
+  var sameCt = 0;
+
   for (var aa = 1; aa < extraGet.length; aa++) {
-    // if (extraGet.length % 2 == 0) {
-    //     if (aa % 2 == 0) {
-    //         decodeList.push(extraGet[aa].textContent);
-    //     }
-    // }
-    if (extraGet[aa - 1].textContent != extraGet[aa].textContent || sameCt > 1) {
+    if (extraGet[aa - 1].textContent != extraGet[aa].textContent || sameCt > 0) {
       decodeList.push(extraGet[aa].textContent);
       sameCt = 0;
     } else {
@@ -629,7 +632,7 @@ function getCitationList(context, xmlDOM) {
   if (decodeCt != decodeList.length) {
     document.getElementById("error-box").innerHTML +=
       '<p class="p-warn"><span class="style-err">' +
-      "Error decoding citations; could not citations to fields.</span></p>";
+      "Error decoding citations; could not match citations to fields.</span></p>";
     canDecode = false;
   }
 
