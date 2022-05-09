@@ -204,7 +204,7 @@ function changeFirstBibEntry(context, url, oParser, oldXML, bookmarkList, citati
   }
   if ("#" + thisRef in bookmarkList) {
     var newURL = getURL(url, citationList[citationMatching["#" + thisRef]].label);
-    var citationText = bookmarkList["#" + thisRef];
+    var citationText = encodeXml(bookmarkList["#" + thisRef]);
   } else {
     return null;
   }
@@ -681,6 +681,24 @@ function decodeXml(string) {
         return "'";
       case "&quot;":
         return '"';
+    }
+  });
+}
+
+function encodeXml(string) {
+  // derived from https://stackoverflow.com/questions/7918868
+  return string.replace(/(<|>|&|'|")/g, function (c) {
+    switch (c) {
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case "&":
+        return "&amp;";
+      case "'":
+        return "&apos;";
+      case '"':
+        return "&quot;";
     }
   });
 }
