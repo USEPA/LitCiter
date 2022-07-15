@@ -707,12 +707,12 @@ function fixCombinedCitations(context, newCitationText, decoded) {
   // pull citation data out of combined citations
 
   // check to see if the text is indeed a citation
-  if (!decoded.includes("<EndNote><Cite>")) {
+  if (!decoded.includes("<EndNote><Cite")) {
     return newCitationText;
   }
 
   var tempList = new Object(); // object for checking for dups
-  var matchCitations = decoded.split("<Cite>");
+  var matchCitations = decoded.split("<Cite");
   for (var ww = 0; ww < matchCitations.length; ww++) {
     var thisAuthor = "";
     var thisYear = "";

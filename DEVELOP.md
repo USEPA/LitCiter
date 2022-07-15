@@ -6,6 +6,8 @@ To create a development environment:
 * `conda activate litciter`
 * `npm install`
 * `npx office-addin-usage-data off`
+
+To test the addon:
 * `npm start`
 
 To deolpy:
