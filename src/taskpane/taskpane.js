@@ -25,6 +25,15 @@ Office.onReady((info) => {
     document.getElementById("link-heronet").onclick = function () {
       changeCitations("heronet");
     };
+    document.getElementById("confirm-box").onclick = function () {
+      if (document.getElementById("confirm-box").checked == true){
+        document.getElementById("link-hero").disabled = false;
+        document.getElementById("link-heronet").disabled = false;
+      } else {
+        document.getElementById("link-hero").disabled = true;
+        document.getElementById("link-heronet").disabled = true;
+      };
+    };
     document.getElementById("sideload-msg").style.display = "none";
     document.getElementById("app-body").style.display = "flex";
     document.getElementById("progress-text").innerHTML = "Initializing...";
@@ -58,17 +67,15 @@ function changeURL(url, oldURL) {
   return newURL;
 }
 
-function changeCitations(url) {
-  Word.run(function (context) {
+async function changeCitations(url) {
+  await Word.run(async (context) => {
     /*
         todo:
         remove check for en.cite.data for decoding
             order doesn't matter, just try and decode all of the fields w/ check
         count uses of each citation in block 2?
             no point in this
-        add version number
         change format of bib links
-        move to async?
         
         things to fix:
             linebreak with issn
@@ -90,7 +97,8 @@ function changeCitations(url) {
     var body = context.document.body;
     var bodyOoxml = body.getOoxml();
     var linkRanges = body.getRange("Content").getHyperlinkRanges();
-    linkRanges.load("items, hyperlink, font, text");
+    linkRanges.load("items, hyperlink, text, font");
+    await context.sync();
 
     var oParser = new DOMParser();
     var bibSearch;
@@ -101,52 +109,49 @@ function changeCitations(url) {
     var bookmarkList;
     var oldBodyXML;
 
-    return context
-      .sync()
-      .then(function () {
-        // search xml to get citations
-        document.getElementById("progress-text").innerHTML = "Adding links in bibliography...";
-        var xmlDOM = oParser.parseFromString(bodyOoxml.value, "text/xml");
-        citationList = getCitationList(context, xmlDOM); // returns array of citation objects
-        bookmarkList = getBibCitations(context, xmlDOM); // returns object with {ENREF: citation text}
-        citationMatching = findMatchingCitation(context, citationList, bookmarkList); // object with {ENREF: citation list index}
-        assignHeroLinks(context, url, linkRanges, citationMatching, citationList);
-        bibSearch = searchForBibText(context, body, bookmarkList, citationMatching); // search for text ranges based on citation text
-        return context.sync();
-      })
-      .then(function () {
-        // split up text ranges
-        bibSearch2 = organizeBibText(context, bibSearch);
-        return context.sync();
-      })
-      .then(function () {
-        // find text range to link
-        bibSearch3 = findBibTextToLink(context, bibSearch2);
-        return context.sync();
-      })
-      .then(function () {
-        // write links to bib ranges
-        writeBibLinks(context, url, bibSearch3, citationMatching, citationList);
+    // search xml to get citations
+    // document.getElementById("error-box").innerHTML += "<p><xmp>" + bodyOoxml.value + "</xmp></p>";
+    var xmlDOM = oParser.parseFromString(bodyOoxml.value, "text/xml");
+    citationList = getCitationList(context, xmlDOM); // returns array of citation objects
+    bookmarkList = getBibCitations(context, xmlDOM); // returns object with {ENREF: citation text}
+    citationMatching = findMatchingCitation(context, citationList, bookmarkList); // object with {ENREF: citation list index}
 
-        var docBody = context.document.body;
-        oldBodyXML = docBody.getOoxml();
-        document.getElementById("progress-text").innerHTML = "Changing first bibliography entry...";
-        return context.sync();
-      })
-      .then(function () {
-        var docBody = context.document.body;
-        var newXML = fixProblems(context, url, oParser, oldBodyXML.value, bookmarkList, citationMatching, citationList);
-        docBody.insertOoxml(newXML, "Replace");
+    for (var n = 1; n <= linkRanges.items.length; n++) {
+      var thisLink = linkRanges.items[n - 1];
+      assignHeroLink(context, url, thisLink, citationMatching, citationList);
+    }
 
-        // change display for output
-        if (document.getElementById("error-box").textContent == "Errors and Warnings") {
-          document.getElementById("error-box").innerHTML = '<p style="">Errors and Warnings: None</p>';
-        }
-        document.getElementById("loader").style.display = "none";
-        document.getElementById("app-body").style.display = "flex";
-        document.getElementById("progress-text").innerHTML = "";
-        return context.sync();
-      });
+    bibSearch = searchForBibText(context, body, bookmarkList, citationMatching); // search for text ranges based on citation text
+    await context.sync();
+
+    // split up text ranges
+    document.getElementById("progress-text").innerHTML = "Adding links to bibliography...";
+    bibSearch2 = organizeBibText(context, bibSearch);
+    await context.sync();
+
+    // find text range to link
+    bibSearch3 = findBibTextToLink(context, bibSearch2);
+    await context.sync();
+
+    // write links to bib ranges
+    var completedBib = writeBibLinks(context, url, bibSearch3, citationMatching, citationList);
+
+    var docBody = context.document.body;
+    oldBodyXML = docBody.getOoxml();
+    await context.sync();
+
+    // var docBody = context.document.body;
+    var newXML = fixProblems(context, url, oParser, oldBodyXML.value, bookmarkList, citationMatching, citationList, completedBib);
+    docBody.insertOoxml(newXML, "Replace");
+
+    // change display for output
+    if (document.getElementById("error-box").textContent == "Errors and Warnings") {
+      document.getElementById("error-box").innerHTML = '<p style="">Errors and Warnings: None</p>';
+    }
+    document.getElementById("loader").style.display = "none";
+    document.getElementById("app-body").style.display = "flex";
+    document.getElementById("progress-text").innerHTML = "";
+    await context.sync();
   }).catch(function (error) {
     document.getElementById("loader").style.display = "none";
     document.getElementById("app-body").style.display = "flex";
@@ -165,7 +170,7 @@ function writeString(context, string) {
   docBody.insertParagraph("" + string, "End");
 }
 
-function fixProblems(context, url, oParser, oldXML, bookmarkList, citationMatching, citationList) {
+function fixProblems(context, url, oParser, oldXML, bookmarkList, citationMatching, citationList, completedBib) {
   // fix a few problems with the code
   var newXML;
 
@@ -173,10 +178,9 @@ function fixProblems(context, url, oParser, oldXML, bookmarkList, citationMatchi
   newXML = changeFirstBibEntry(context, url, oParser, oldXML, bookmarkList, citationMatching, citationList);
   if (newXML !== null) {
     // remove bookmarks
-    for (var ref in bookmarkList) {
-      if (!Object.prototype.hasOwnProperty.call(bookmarkList, ref)) {
-        continue;
-      }
+    // for (var ref in bookmarkList) {
+    for (var i = 0; i < completedBib.length; i++) {
+      var ref = completedBib[i];
       var removeBookmark = new RegExp('<w:bookmarkStart w:id="\\d+" w:name="' + ref.replace("#", "") + '"/>', "g");
       newXML = newXML.replace(removeBookmark, "");
     }
@@ -202,7 +206,7 @@ function changeFirstBibEntry(context, url, oParser, oldXML, bookmarkList, citati
   }
   if ("#" + thisRef in bookmarkList && "#" + thisRef in citationMatching) {
     var newURL = getURL(url, citationList[citationMatching["#" + thisRef]].label);
-    var citationText = encodeXml(bookmarkList["#" + thisRef]);
+    var citationText = encodeXml(bookmarkList["#" + thisRef][0]);
   } else {
     return null;
   }
@@ -259,7 +263,7 @@ function changeFirstBibEntry(context, url, oParser, oldXML, bookmarkList, citati
   var bookmarkList2 = xmlDOM.getElementsByTagName("w:bookmarkStart");
   for (var a = 0; a < bookmarkList2.length; a++) {
     var bookmark = bookmarkList2[a];
-    if (bookmark.hasAttribute("w:name") && bookmark.getAttribute("w:name") == "_ENREF_1") {
+    if (bookmark.hasAttribute("w:name") && bookmark.getAttribute("w:name") == thisRef) {
       // get correct element, get parent, insert text in right place
       var thisParagraph = bookmark.parentNode;
       if (thisParagraph.nodeName != "w:p" || !thisParagraph.hasAttribute("w:rsidRPr")) {
@@ -309,6 +313,7 @@ function changeFirstBibEntry(context, url, oParser, oldXML, bookmarkList, citati
 
 function writeBibLinks(context, url, bibSearch3, citationMatching, citationList) {
   // write hyperlinks onto ranges
+  var completedBib = [];
   for (var ref in bibSearch3) {
     if (!Object.prototype.hasOwnProperty.call(bibSearch3, ref)) {
       continue;
@@ -320,7 +325,9 @@ function writeBibLinks(context, url, bibSearch3, citationMatching, citationList)
 
       searchCollection.hyperlink = getURL(url, label);
     }
+    completedBib.push(ref)
   }
+  return completedBib;
 }
 
 function findBibTextToLink(context, bibSearch2) {
@@ -415,54 +422,50 @@ function searchForBibText(context, body, bookmarkList, citationMatching) {
     if (ref == "#_ENREF_1") {
       continue;
     }
-    var searchResults = body.search(bookmarkList[ref].substring(0, 255), { matchCase: true });
+    var searchResults = body.search(bookmarkList[ref].join("").substring(0, 255), { matchCase: true });
     searchResults.load("items, text");
     searchList[ref] = searchResults;
   }
   return searchList;
 }
 
-function assignHeroLinks(context, url, linkRanges, citationMatching, citationList) {
+function assignHeroLink(context, url, thisLink, citationMatching, citationList) {
   // change links in document
-  for (var n = 0; n < linkRanges.items.length; n++) {
-    var oldURL = linkRanges.items[n].hyperlink;
-    var oldText = linkRanges.items[n].text;
-    if (oldURL == null || oldText == "") {
-      continue;
-    }
-
-    if (oldURL in citationMatching && oldURL != oldText) {
-      var newURL = getURL(url, citationList[citationMatching[oldURL]].label);
-
-      continue;
-      linkRanges.items[n].hyperlink = newURL;
-    } else {
-      var changedURL = changeURL(url, oldURL);
-      if (changedURL !== null) {
-        if (oldText == oldURL) {
-          linkRanges.items[n].insertText(changedURL, "Replace");
-        }
-        linkRanges.items[n].hyperlink = changedURL;
-      } else if (oldText != oldURL) {
-        var errStyle = "info";
-        if (oldURL.includes("_ENREF_")) {
-          linkRanges.items[n].font.highlightColor = "#FFFF00";
-          errStyle = "err";
-        }
-        document.getElementById("error-box").innerHTML +=
-          '<p class="p-warn"><span class="style-' +
-          errStyle +
-          '">' +
-          'Hyperlink "' +
-          oldText +
-          '" ("' +
-          oldURL +
-          '")' +
-          " not changed.</span></p>";
+  // for (var n = 0; n < linkRanges.items.length; n++) {
+  //   var thisLink = linkRanges.items[n];
+  var oldURL = thisLink.hyperlink;
+  var oldText = thisLink.text;
+  if (oldURL == null || oldText == "") {
+  } else if (oldURL in citationMatching && oldURL != oldText) {
+    var newURL = getURL(url, citationList[citationMatching[oldURL]].label);
+    thisLink.hyperlink = newURL;
+  } else {
+    var changedURL = changeURL(url, oldURL);
+    if (changedURL !== null) {
+      if (oldText == oldURL) {
+        thisLink.insertText(changedURL, "Replace");
       }
+      thisLink.hyperlink = changedURL;
+    } else if (oldText != oldURL) {
+      var errStyle = "info";
+      if (oldURL.includes("_ENREF_")) {
+        thisLink.font.highlightColor = "#FFFF00";
+        errStyle = "err";
+      }
+      document.getElementById("error-box").innerHTML +=
+        '<p class="p-warn"><span class="style-' +
+        errStyle +
+        '">' +
+        'Hyperlink "' +
+        oldText +
+        '" ("' +
+        oldURL +
+        '")' +
+        " not changed.</span></p>";
     }
   }
 }
+// }
 
 function findMatchingCitation(context, citationList, bookmarkList) {
   // match bib entries to a citation
@@ -480,7 +483,7 @@ function findMatchingCitation(context, citationList, bookmarkList) {
       continue;
     }
     var citeInd = -1;
-    var thisBib = bookmarkList[ref];
+    var thisBib = bookmarkList[ref].join("");
     var tieBreak = -1;
     for (var a = 0; a < citationList.length; a++) {
       if (usedCitations.includes(a)) {
@@ -525,6 +528,7 @@ function findMatchingCitation(context, citationList, bookmarkList) {
       }
     }
     if (citeInd == -1) {
+      document.getElementById("error-box").innerHTML += "<p><xmp>" + thisBib + "</xmp></p>";
       document.getElementById("error-box").innerHTML +=
         '<p class="p-warn"><span class="style-err">' +
         'Could not find a matching citation for bib entry "' +
@@ -562,29 +566,32 @@ function getBibCitations(context, xmlDOM) {
 
       // get text for citation
       var findText = bookmark.nextSibling;
-      var foundText = false;
-      var citeValue;
-      while (!foundText && findText !== null) {
-        if (findText.nodeName == "w:r") {
+      var citeValues = [];
+      var firstBlock = true;
+      while (findText !== null) {
+        if (findText.nodeName == "w:r" && firstBlock) {
           var textNode = findText.firstChild;
+          while (textNode !== null && textNode.nodeName !== "w:t") {
+            textNode = textNode.nextSibling;
+          }
           if (textNode !== null && textNode.nodeName == "w:t") {
             // if (textNode.hasAttribute("xml:space") && textNode.getAttribute("xml:space") == "preserve") {
             var textValue = textNode.textContent;
-            if (textValue !== null && textValue.length > 40) {
-              foundText = true;
-              citeValue = textValue;
-              continue;
+            if (textValue !== null) {
+              citeValues.push(textValue);
             }
           }
+        } else if (findText.nodeName !== "w:r" && firstBlock) {
+          firstBlock = false;
         }
         findText = findText.nextSibling;
       }
-      if (!foundText) {
+      if (citeValues.length == 0) {
         continue;
       }
 
       // set return values
-      returnValue["#" + anchorName] = citeValue;
+      returnValue["#" + anchorName] = citeValues;
     } else {
       // no bookmark name, skip
       continue;
@@ -600,6 +607,8 @@ function getCitationList(context, xmlDOM) {
   var decodeList = [];
   var citationList = [];
   var citationGet = xmlDOM.querySelectorAll("*|instrText, *|delInstrText");
+  // var citationGet = xmlDOM.getElementsByTagName("w:instrText");
+  // var deletedCitationsGet = xmlDOM.getElementsByTagName("w:delInstrText");
   var extraGet = xmlDOM.getElementsByTagName("w:fldData");
   if (extraGet === null) {
     extraGet = [];
@@ -619,12 +628,27 @@ function getCitationList(context, xmlDOM) {
   }
   var decodeCt = 0;
   for (var jj = 0; jj < citationGet.length; jj++) {
+    var tagName = citationGet[jj].tagName;
     var tempContent = citationGet[jj].textContent;
+    var keepTag;
+    if (tagName == "w:instrText") {
+      keepTag = true;
+    } else {
+      keepTag = false;
+    }
     if (tempContent.includes(" ADDIN EN.CITE ") && tempContent != " ADDIN EN.CITE ") {
-      citationList.push(tempContent);
+      if (keepTag) {
+        citationList.push(tempContent);
+      } else {
+        citationList.push("SKIP");
+      }
     }
     if (extraGet.length > 0 && tempContent == " ADDIN EN.CITE.DATA ") {
-      citationList.push("DECODE");
+      if (keepTag) {
+        citationList.push("DECODE");
+      } else {
+        citationList.push("SKIP-DECODE");
+      }
       decodeCt += 1;
     }
   }
@@ -647,15 +671,24 @@ function getCitationList(context, xmlDOM) {
     if (citationList[dd] == "DECODE") {
       decoded = "";
       if (canDecode) {
-        var decodeText = decodeList[citeCt].split("\n"); // string of base64
-        for (var tt = 0; tt < decodeText.length; tt++) {
-          var thisText = decodeText[tt].replace("\r", "");
-          if (thisText.length > 0) {
-            decoded += Base64.decode(thisText);
-          }
+        // var decodeText = decodeList[citeCt].split("\n"); // string of base64
+        // for (var tt = 0; tt < decodeText.length; tt++) {
+        //   var thisText = decodeText[tt].replace("\r", "");
+        //   if (thisText.length > 0) {
+        //     decoded += Base64.decode(thisText);
+        //   }
+        // }
+        var thisText = decodeList[citeCt].replace("\r", "").replace("\n", "");
+        if (thisText.length > 0) {
+          decoded = Base64.decode(thisText);
         }
       }
       // decoded = decodeXml(decoded);
+      citeCt += 1;
+    } else if (citationList[dd] == "SKIP") {
+      decoded = "";
+    } else if (citationList[dd] == "SKIP-DECODE") {
+      decoded = "";
       citeCt += 1;
     } else {
       decoded = citationList[dd];
@@ -722,6 +755,9 @@ function fixCombinedCitations(context, newCitationText, decoded) {
     var thisTitle = "";
 
     var matchLabelTest = matchCitations[ww].match(/<label>(\d{1,})<\/label>/g);
+    if (!matchLabelTest) {
+      matchLabelTest = matchCitations[ww].match(/<IDText>(\d{1,})<\/IDText>/g);
+    }
     if (matchLabelTest) {
       if (matchLabelTest.length == 1) {
         thisLabel = matchLabelTest[0];
@@ -743,16 +779,18 @@ function fixCombinedCitations(context, newCitationText, decoded) {
 
     // don't add if duplicate or blank
     if (thisLabel == "") {
-      var citeText = matchCitations[ww].split("/Year>")[0]
+      var citeText = matchCitations[ww].split("/Year>")[0];
       if (!citeText.includes(" ADDIN EN") && !citeText.includes("<EndNote>")) {
+        document.getElementById("error-box").innerHTML += "<p><xmp>" + decoded + "</xmp></p>";
         document.getElementById("error-box").innerHTML +=
-        '<p class="p-warn"><span class="style-err">' +
-        'The following citation is missing a HERO ID: "' +
-        citeText + '</span></p>';
+          '<p class="p-warn"><span class="style-err">' +
+          'The following citation is missing a HERO ID: "' +
+          citeText +
+          "</span></p>";
       }
       continue;
     }
-    thisLabel = thisLabel.match(/<label>(\d{1,})<\/label>/)[1];
+    thisLabel = thisLabel.match(/<[a-zA-Z]{5,6}>(\d{1,})<\/[a-zA-Z]{5,6}>/)[1];
     // if (labelList.includes(thisLabel)) {continue;}
 
     var matchAuthor = matchCitations[ww].match(/<Author>([^<>/]{1,})<\/Author>/);
@@ -764,6 +802,12 @@ function fixCombinedCitations(context, newCitationText, decoded) {
     var matchYearTest = matchCitations[ww].match(/<Year>(\d{4})<\/Year>/g);
     if (matchYear && matchYearTest && matchYearTest.length == 1) {
       thisYear = matchYear[1];
+    } else {
+      var inPress = matchCitations[ww].match(/<custom7>(In Press)<\/custom7>/);
+      var inPressTest = matchCitations[ww].match(/<custom7>(In Press)<\/custom7>/g);
+      if (inPress && inPressTest && inPressTest.length == 1) {
+        thisYear = inPress[1];
+      }
     }
     var matchTitle = matchCitations[ww].match(/<title>([^<>]{1,})<\/title>/);
     var matchTitleTest = matchCitations[ww].match(/<title>([^<>]{1,})<\/title>/g);
