@@ -82,10 +82,6 @@ async function changeCitations(url) {
             < and > in doi link
             for id 77963, no space after link
 
-        var docBody = context.document.body;
-        docBody.insertParagraph("" + decoded,
-                                "End");
-
         */
 
     // clear error box
@@ -431,10 +427,10 @@ function searchForBibText(context, body, bookmarkList, citationMatching) {
 
 function assignHeroLink(context, url, thisLink, citationMatching, citationList) {
   // change links in document
-  // for (var n = 0; n < linkRanges.items.length; n++) {
-  //   var thisLink = linkRanges.items[n];
   var oldURL = thisLink.hyperlink;
   var oldText = thisLink.text;
+  // https://stackoverflow.com/questions/70079971
+  var encodedText = encodeURI(thisLink.text).replace().replace(/%\w\w/g, match => match.toLowerCase());
   if (oldURL == null || oldText == "") {
   } else if (oldURL in citationMatching && oldURL != oldText) {
     var newURL = getURL(url, citationList[citationMatching[oldURL]].label);
@@ -442,11 +438,11 @@ function assignHeroLink(context, url, thisLink, citationMatching, citationList) 
   } else {
     var changedURL = changeURL(url, oldURL);
     if (changedURL !== null) {
-      if (oldText == oldURL) {
+      if (oldText == oldURL || encodedText == oldURL) {
         thisLink.insertText(changedURL, "Replace");
       }
       thisLink.hyperlink = changedURL;
-    } else if (oldText != oldURL) {
+    } else if (oldText != oldURL && encodedText != oldURL) {
       var errStyle = "info";
       if (oldURL.includes("_ENREF_")) {
         thisLink.font.highlightColor = "#FFFF00";
@@ -528,7 +524,6 @@ function findMatchingCitation(context, citationList, bookmarkList) {
       }
     }
     if (citeInd == -1) {
-      document.getElementById("error-box").innerHTML += "<p><xmp>" + thisBib + "</xmp></p>";
       document.getElementById("error-box").innerHTML +=
         '<p class="p-warn"><span class="style-err">' +
         'Could not find a matching citation for bib entry "' +
@@ -540,7 +535,7 @@ function findMatchingCitation(context, citationList, bookmarkList) {
           '<p class="p-warn"><span class="style-warn">' +
           'Matched citation for bib entry "' +
           thisBib.split(".")[0] +
-          '...", but it was not a full match.</span></p>';
+          '...", but it was not a full match. Some fields may be missing.</span></p>';
       }
       returnValue[ref] = citeInd;
       usedCitations.push(citeInd);
@@ -553,7 +548,6 @@ function getBibCitations(context, xmlDOM) {
   // search for the bibliography text
   // there is a preview api for the bookmark that would be good to switch to
 
-  // var bibXML = OoxmlList[1].value;
   var returnValue = new Object();
   var bookmarkList = xmlDOM.getElementsByTagName("w:bookmarkStart");
   for (var a = 0; a < bookmarkList.length; a++) {
@@ -607,8 +601,6 @@ function getCitationList(context, xmlDOM) {
   var decodeList = [];
   var citationList = [];
   var citationGet = xmlDOM.querySelectorAll("*|instrText, *|delInstrText");
-  // var citationGet = xmlDOM.getElementsByTagName("w:instrText");
-  // var deletedCitationsGet = xmlDOM.getElementsByTagName("w:delInstrText");
   var extraGet = xmlDOM.getElementsByTagName("w:fldData");
   if (extraGet === null) {
     extraGet = [];
@@ -627,6 +619,8 @@ function getCitationList(context, xmlDOM) {
     }
   }
   var decodeCt = 0;
+  var splitCitation = [];
+  var currentSplit = false;
   for (var jj = 0; jj < citationGet.length; jj++) {
     var tagName = citationGet[jj].tagName;
     var tempContent = citationGet[jj].textContent;
@@ -636,20 +630,39 @@ function getCitationList(context, xmlDOM) {
     } else {
       keepTag = false;
     }
+    var hasEndnoteEndTag = tempContent.includes("</EndNote>");
+    
     if (tempContent.includes(" ADDIN EN.CITE ") && tempContent != " ADDIN EN.CITE ") {
       if (keepTag) {
-        citationList.push(tempContent);
+        if (hasEndnoteEndTag) {
+          citationList.push(tempContent);
+        } else {
+          if (currentSplit) {
+            document.getElementById("error-box").innerHTML +=
+            '<p class="p-warn"><span class="style-warn">' +
+            "Error parsing split citation, some data may be missing.</span></p>";
+          }
+          currentSplit = true;
+          splitCitation = [];
+          splitCitation.push(tempContent);
+        }
       } else {
         citationList.push("SKIP");
       }
-    }
-    if (extraGet.length > 0 && tempContent == " ADDIN EN.CITE.DATA ") {
+    } else if (extraGet.length > 0 && tempContent == " ADDIN EN.CITE.DATA ") {
       if (keepTag) {
         citationList.push("DECODE");
       } else {
         citationList.push("SKIP-DECODE");
       }
       decodeCt += 1;
+    } else if (currentSplit) {
+      splitCitation.push(tempContent)
+      if (hasEndnoteEndTag) {
+        citationList.push(splitCitation.join(""));
+        currentSplit = false;
+        splitCitation = [];
+      }
     }
   }
 
@@ -671,19 +684,11 @@ function getCitationList(context, xmlDOM) {
     if (citationList[dd] == "DECODE") {
       decoded = "";
       if (canDecode) {
-        // var decodeText = decodeList[citeCt].split("\n"); // string of base64
-        // for (var tt = 0; tt < decodeText.length; tt++) {
-        //   var thisText = decodeText[tt].replace("\r", "");
-        //   if (thisText.length > 0) {
-        //     decoded += Base64.decode(thisText);
-        //   }
-        // }
         var thisText = decodeList[citeCt].replace("\r", "").replace("\n", "");
         if (thisText.length > 0) {
           decoded = Base64.decode(thisText);
         }
       }
-      // decoded = decodeXml(decoded);
       citeCt += 1;
     } else if (citationList[dd] == "SKIP") {
       decoded = "";
@@ -777,22 +782,6 @@ function fixCombinedCitations(context, newCitationText, decoded) {
       }
     }
 
-    // don't add if duplicate or blank
-    if (thisLabel == "") {
-      var citeText = matchCitations[ww].split("/Year>")[0];
-      if (!citeText.includes(" ADDIN EN") && !citeText.includes("<EndNote>")) {
-        document.getElementById("error-box").innerHTML += "<p><xmp>" + decoded + "</xmp></p>";
-        document.getElementById("error-box").innerHTML +=
-          '<p class="p-warn"><span class="style-err">' +
-          'The following citation is missing a HERO ID: "' +
-          citeText +
-          "</span></p>";
-      }
-      continue;
-    }
-    thisLabel = thisLabel.match(/<[a-zA-Z]{5,6}>(\d{1,})<\/[a-zA-Z]{5,6}>/)[1];
-    // if (labelList.includes(thisLabel)) {continue;}
-
     var matchAuthor = matchCitations[ww].match(/<Author>([^<>/]{1,})<\/Author>/);
     var matchAuthorTest = matchCitations[ww].match(/<Author>([^<>/]{1,})<\/Author>/g);
     if (matchAuthor && matchAuthorTest && matchAuthorTest.length == 1) {
@@ -814,6 +803,19 @@ function fixCombinedCitations(context, newCitationText, decoded) {
     if (matchTitle && matchTitleTest && matchTitleTest.length == 1) {
       thisTitle = decodeXml(matchTitle[1]);
     }
+
+    // don't add if duplicate or blank
+    if (thisLabel == "") {
+      if (!matchCitations[ww].includes(" ADDIN EN") && !matchCitations[ww].includes("<EndNote>")) {
+        document.getElementById("error-box").innerHTML +=
+          '<p class="p-warn"><span class="style-err">' +
+          'The following citation is missing a HERO ID: "' +
+          thisAuthor + " " + thisYear +
+          "</span></p>";
+      }
+      continue;
+    }
+    thisLabel = thisLabel.match(/<[a-zA-Z]{5,6}>(\d{1,})<\/[a-zA-Z]{5,6}>/)[1];
 
     // check for duplicate citations
     var combData = thisAuthor + thisYear + thisTitle;
