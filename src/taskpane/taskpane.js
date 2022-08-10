@@ -98,12 +98,10 @@ async function changeCitations(url) {
 
     var oParser = new DOMParser();
     var bibSearch;
-    var bibSearch2;
     var bibSearch3;
     var citationList;
     var citationMatching;
     var bookmarkList;
-    var oldBodyXML;
 
     // search xml to get citations
     // document.getElementById("error-box").innerHTML += "<p><xmp>" + bodyOoxml.value + "</xmp></p>";
@@ -120,25 +118,14 @@ async function changeCitations(url) {
     bibSearch = searchForBibText(context, body, bookmarkList, citationMatching); // search for text ranges based on citation text
     await context.sync();
 
-    // split up text ranges
-    document.getElementById("progress-text").innerHTML = "Adding links to bibliography...";
-    bibSearch2 = organizeBibText(context, bibSearch);
-    await context.sync();
-
     // find text range to link
-    bibSearch3 = findBibTextToLink(context, bibSearch2);
+    bibSearch3 = findBibTextToLink(context, bibSearch);
+    document.getElementById("progress-text").innerHTML = "Adding links to bibliography...";
+
     await context.sync();
 
     // write links to bib ranges
-    var completedBib = writeBibLinks(context, url, bibSearch3, citationMatching, citationList);
-
-    var docBody = context.document.body;
-    oldBodyXML = docBody.getOoxml();
-    await context.sync();
-
-    // var docBody = context.document.body;
-    var newXML = fixProblems(context, url, oParser, oldBodyXML.value, bookmarkList, citationMatching, citationList, completedBib);
-    docBody.insertOoxml(newXML, "Replace");
+    writeBibLinks(context, url, bibSearch3, citationMatching, citationList);
 
     // change display for output
     if (document.getElementById("error-box").textContent == "Errors and Warnings") {
@@ -160,156 +147,8 @@ async function changeCitations(url) {
   });
 }
 
-function writeString(context, string) {
-  // for debugging
-  var docBody = context.document.body;
-  docBody.insertParagraph("" + string, "End");
-}
-
-function fixProblems(context, url, oParser, oldXML, bookmarkList, citationMatching, citationList, completedBib) {
-  // fix a few problems with the code
-  var newXML;
-
-  // edit the xml to change the first bibliography entry
-  newXML = changeFirstBibEntry(context, url, oParser, oldXML, bookmarkList, citationMatching, citationList);
-  if (newXML !== null) {
-    // remove bookmarks
-    // for (var ref in bookmarkList) {
-    for (var i = 0; i < completedBib.length; i++) {
-      var ref = completedBib[i];
-      var removeBookmark = new RegExp('<w:bookmarkStart w:id="\\d+" w:name="' + ref.replace("#", "") + '"/>', "g");
-      newXML = newXML.replace(removeBookmark, "");
-    }
-    // newXML = newXML.replace(/<w:bookmarkStart w:id="\d+" w:name="_ENREF_\d+"\/>/g, "");
-    // newXML = newXML.replace(/<w:bookmarkEnd w:id="\d+"\/>/g, "");
-  } else {
-    newXML = oldXML;
-  }
-
-  // replace carriage returns
-  // newXML = newXML.replace(/&amp;#xD;/g, " / ");
-
-  return newXML;
-}
-
-function changeFirstBibEntry(context, url, oParser, oldXML, bookmarkList, citationMatching, citationList) {
-  // change the XML of the first bib entry to add a link
-  // for some reason, the first bib entry isn't included in any one paragraph
-
-  var thisRef = "_ENREF_1";
-  if (!oldXML.includes(thisRef)) {
-    return null;
-  }
-  if ("#" + thisRef in bookmarkList && "#" + thisRef in citationMatching) {
-    var newURL = getURL(url, citationList[citationMatching["#" + thisRef]].label);
-    var citationText = encodeXml(bookmarkList["#" + thisRef][0]);
-  } else {
-    return null;
-  }
-
-  // parse citation string, copied from earlier in script
-  var citeSplit = citationText.split(".");
-
-  var runningCount = 0;
-  var parenCount = 0;
-
-  for (var j = 0; j < citeSplit.length; j++) {
-    var searchMatch = citeSplit[j];
-    if (searchMatch.includes("(")) {
-      parenCount = parenCount + 1;
-    }
-    if (searchMatch.includes(")")) {
-      parenCount = parenCount - 1;
-    }
-    runningCount = runningCount + searchMatch.length;
-    if (searchMatch.length < 4) {
-      continue;
-    }
-    if (searchMatch.match(/[(][^)]{4,}[a-z]?[)][.]?/)) {
-      break;
-    }
-    if (j > 4) {
-      break;
-    }
-    if (runningCount > 40 && parenCount == 0) {
-      break;
-    }
-  }
-
-  var combRange = "";
-  if (runningCount > 0) {
-    for (var q = 0; q < j + 1; q++) {
-      var delim = "";
-      if (q < citeSplit.length - 1) {
-        delim = ".";
-      }
-      combRange = combRange + citeSplit[q] + delim;
-    }
-  }
-  if (combRange.length == 0) {
-    document.getElementById("error-box").innerHTML +=
-      '<p class="p-warn"><span class="style-err">' +
-      "Could not find any text to link in the first citation.</span></p>";
-    return null;
-  }
-
-  // find section to change
-  var finalXMLstr = "";
-  var xmlDOM = oParser.parseFromString(oldXML, "text/xml");
-  var bookmarkList2 = xmlDOM.getElementsByTagName("w:bookmarkStart");
-  for (var a = 0; a < bookmarkList2.length; a++) {
-    var bookmark = bookmarkList2[a];
-    if (bookmark.hasAttribute("w:name") && bookmark.getAttribute("w:name") == thisRef) {
-      // get correct element, get parent, insert text in right place
-      var thisParagraph = bookmark.parentNode;
-      if (thisParagraph.nodeName != "w:p" || !thisParagraph.hasAttribute("w:rsidRPr")) {
-        continue;
-      }
-      var rsid = thisParagraph.getAttribute("w:rsidRPr");
-
-      var newText =
-        "" +
-        '<w:r><w:fldChar w:fldCharType="begin"/></w:r>' +
-        '<w:r><w:instrText xml:space="preserve"> HYPERLINK "' +
-        newURL +
-        '" </w:instrText></w:r>' +
-        '<w:r><w:fldChar w:fldCharType="separate"/></w:r>' +
-        '<w:r w:rsidRPr="' +
-        rsid +
-        '"><w:rPr><w:rStyle w:val="Hyperlink"/></w:rPr>' +
-        "<w:t>" +
-        combRange +
-        "</w:t></w:r>" +
-        '<w:r><w:fldChar w:fldCharType="end"/></w:r>';
-
-      var splitMatch = oldXML.match(/<w:bookmarkStart w:id="\d+" w:name="_ENREF_1"\/>/);
-      if (!splitMatch) {
-        continue;
-      }
-      var splitStr = splitMatch[0];
-      var splitArr = oldXML.split(splitStr);
-      finalXMLstr = splitArr[0] + splitStr + newText + splitArr[1];
-
-      break;
-    } else {
-      continue;
-    }
-  }
-
-  if (finalXMLstr.length == 0) {
-    document.getElementById("error-box").innerHTML +=
-      '<p class="p-warn"><span class="style-err">' + "Could not add a link to the first bibliography entry.</span></p>";
-    return null;
-  }
-
-  var xmlStringedit = finalXMLstr.replace(citationText, citationText.replace(combRange, ""));
-
-  return xmlStringedit;
-}
-
 function writeBibLinks(context, url, bibSearch3, citationMatching, citationList) {
   // write hyperlinks onto ranges
-  var completedBib = [];
   for (var ref in bibSearch3) {
     if (!Object.prototype.hasOwnProperty.call(bibSearch3, ref)) {
       continue;
@@ -318,12 +157,12 @@ function writeBibLinks(context, url, bibSearch3, citationMatching, citationList)
     var searchList = bibSearch3[ref];
     for (var i = 0; i < searchList.length; i++) {
       var searchCollection = searchList[i];
-
-      searchCollection.hyperlink = getURL(url, label);
+      for (var j = 0; j < searchCollection.items.length; j++) {
+        var searchRange = searchCollection.items[j]
+        searchRange.hyperlink = getURL(url, label);
+      }
     }
-    completedBib.push(ref)
   }
-  return completedBib;
 }
 
 function findBibTextToLink(context, bibSearch2) {
@@ -334,27 +173,27 @@ function findBibTextToLink(context, bibSearch2) {
     if (!Object.prototype.hasOwnProperty.call(bibSearch2, ref)) {
       continue;
     }
-    var searchCollectionList = bibSearch2[ref];
-
+    var searchCollection = bibSearch2[ref];
     var searchList = [];
-    for (var i = 0; i < searchCollectionList.length; i++) {
-      // should only have length of 1
-      var searchCollection = searchCollectionList[i];
+    for (var ii = 0; ii < searchCollection.items.length; ii++) {
+      var searchRange = searchCollection.items[ii];
+      var splitText = searchRange.text.split(".");
+
       var runningCount = 0;
       var parenCount = 0;
-      for (var j = 0; j < searchCollection.items.length; j++) {
-        var searchMatch = searchCollection.items[j];
-        if (searchMatch.text.includes("(")) {
+      for (var j = 0; j < splitText.length; j++) {
+        var searchMatch = splitText[j];
+        if (searchMatch.includes("(")) {
           parenCount = parenCount + 1;
         }
-        if (searchMatch.text.includes(")")) {
+        if (searchMatch.includes(")")) {
           parenCount = parenCount - 1;
         }
-        runningCount = runningCount + searchMatch.text.length;
-        if (searchMatch.text.length < 4) {
+        runningCount = runningCount + searchMatch.length;
+        if (searchMatch.length < 4) {
           continue;
         }
-        if (searchMatch.text.match(/[(][^)]{4,}[a-z]?[)][.]?/)) {
+        if (searchMatch.match(/[(][^)]{4,}[a-z]?[)][.]?/)) {
           break;
         }
         if (j > 4) {
@@ -366,9 +205,9 @@ function findBibTextToLink(context, bibSearch2) {
       }
 
       if (runningCount > 0) {
-        var combRange = searchCollection.items[0].getRange().expandTo(searchCollection.items[j].getRange()).getRange();
-        combRange.load("text, hyperlink");
-        searchList.push(combRange);
+        var searchResults = searchRange.search(splitText.slice(0, j+1).join("."), { matchCase: true });
+        searchResults.load("items, text, hyperlink");
+        searchList.push(searchResults);
       } else {
         document.getElementById("error-box").innerHTML +=
           '<p class="p-warn"><span class="style-err">' +
@@ -382,26 +221,6 @@ function findBibTextToLink(context, bibSearch2) {
   return bibSearch3;
 }
 
-function organizeBibText(context, bibSearch) {
-  // split the search results into text ranges
-  var bibSearch2 = new Object();
-  for (var ref in bibSearch) {
-    if (!Object.prototype.hasOwnProperty.call(bibSearch, ref)) {
-      continue;
-    }
-    var searchList = [];
-    var searchCollection = bibSearch[ref];
-    for (var j = 0; j < searchCollection.items.length; j++) {
-      var searchMatch = searchCollection.items[j];
-      var searchResults = searchMatch.getTextRanges(["."]);
-      searchResults.load("text");
-      searchList.push(searchResults);
-    }
-    bibSearch2[ref] = searchList;
-  }
-  return bibSearch2;
-}
-
 function searchForBibText(context, body, bookmarkList, citationMatching) {
   /*
     now we have an object with {label: citation text}
@@ -413,9 +232,6 @@ function searchForBibText(context, body, bookmarkList, citationMatching) {
       continue;
     }
     if (!Object.prototype.hasOwnProperty.call(citationMatching, ref)) {
-      continue;
-    }
-    if (ref == "#_ENREF_1") {
       continue;
     }
     var searchResults = body.search(bookmarkList[ref].join("").substring(0, 255), { matchCase: true });
@@ -461,7 +277,6 @@ function assignHeroLink(context, url, thisLink, citationMatching, citationList) 
     }
   }
 }
-// }
 
 function findMatchingCitation(context, citationList, bookmarkList) {
   // match bib entries to a citation
@@ -810,7 +625,7 @@ function fixCombinedCitations(context, newCitationText, decoded) {
         document.getElementById("error-box").innerHTML +=
           '<p class="p-warn"><span class="style-err">' +
           'The following citation is missing a HERO ID: "' +
-          thisAuthor + " " + thisYear +
+          thisAuthor + " " + thisYear + '"' +
           "</span></p>";
       }
       continue;
