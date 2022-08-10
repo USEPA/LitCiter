@@ -26,13 +26,13 @@ Office.onReady((info) => {
       changeCitations("heronet");
     };
     document.getElementById("confirm-box").onclick = function () {
-      if (document.getElementById("confirm-box").checked == true){
+      if (document.getElementById("confirm-box").checked == true) {
         document.getElementById("link-hero").disabled = false;
         document.getElementById("link-heronet").disabled = false;
       } else {
         document.getElementById("link-hero").disabled = true;
         document.getElementById("link-heronet").disabled = true;
-      };
+      }
     };
     document.getElementById("sideload-msg").style.display = "none";
     document.getElementById("app-body").style.display = "flex";
@@ -158,7 +158,7 @@ function writeBibLinks(context, url, bibSearch3, citationMatching, citationList)
     for (var i = 0; i < searchList.length; i++) {
       var searchCollection = searchList[i];
       for (var j = 0; j < searchCollection.items.length; j++) {
-        var searchRange = searchCollection.items[j]
+        var searchRange = searchCollection.items[j];
         searchRange.hyperlink = getURL(url, label);
       }
     }
@@ -205,7 +205,7 @@ function findBibTextToLink(context, bibSearch2) {
       }
 
       if (runningCount > 0) {
-        var searchResults = searchRange.search(splitText.slice(0, j+1).join("."), { matchCase: true });
+        var searchResults = searchRange.search(splitText.slice(0, j + 1).join("."), { matchCase: true });
         searchResults.load("items, text, hyperlink");
         searchList.push(searchResults);
       } else {
@@ -246,7 +246,7 @@ function assignHeroLink(context, url, thisLink, citationMatching, citationList) 
   var oldURL = thisLink.hyperlink;
   var oldText = thisLink.text;
   // https://stackoverflow.com/questions/70079971
-  var encodedText = encodeURI(thisLink.text).replace().replace(/%\w\w/g, match => match.toLowerCase());
+  var encodedText = encodeURI(thisLink.text).replace(/%\w\w/g, (match) => match.toLowerCase());
   if (oldURL == null || oldText == "") {
   } else if (oldURL in citationMatching && oldURL != oldText) {
     var newURL = getURL(url, citationList[citationMatching[oldURL]].label);
@@ -446,7 +446,7 @@ function getCitationList(context, xmlDOM) {
       keepTag = false;
     }
     var hasEndnoteEndTag = tempContent.includes("</EndNote>");
-    
+
     if (tempContent.includes(" ADDIN EN.CITE ") && tempContent != " ADDIN EN.CITE ") {
       if (keepTag) {
         if (hasEndnoteEndTag) {
@@ -454,8 +454,8 @@ function getCitationList(context, xmlDOM) {
         } else {
           if (currentSplit) {
             document.getElementById("error-box").innerHTML +=
-            '<p class="p-warn"><span class="style-warn">' +
-            "Error parsing split citation, some data may be missing.</span></p>";
+              '<p class="p-warn"><span class="style-warn">' +
+              "Error parsing split citation, some data may be missing.</span></p>";
           }
           currentSplit = true;
           splitCitation = [];
@@ -472,7 +472,7 @@ function getCitationList(context, xmlDOM) {
       }
       decodeCt += 1;
     } else if (currentSplit) {
-      splitCitation.push(tempContent)
+      splitCitation.push(tempContent);
       if (hasEndnoteEndTag) {
         citationList.push(splitCitation.join(""));
         currentSplit = false;
@@ -625,7 +625,10 @@ function fixCombinedCitations(context, newCitationText, decoded) {
         document.getElementById("error-box").innerHTML +=
           '<p class="p-warn"><span class="style-err">' +
           'The following citation is missing a HERO ID: "' +
-          thisAuthor + " " + thisYear + '"' +
+          thisAuthor +
+          " " +
+          thisYear +
+          '"' +
           "</span></p>";
       }
       continue;
