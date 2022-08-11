@@ -1,3 +1,4 @@
 node_modules
 .vscode
 xml/*
+old_icons/*

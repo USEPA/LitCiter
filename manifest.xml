@@ -4,10 +4,10 @@
   <Version>1.0.0.0</Version>
   <ProviderName>US EPA</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="LitCiter"/>
+  <DisplayName DefaultValue="LinkCiter"/>
   <Description DefaultValue="Link a bibliography to HERO."/>
-  <IconUrl DefaultValue="https://localhost:3000/assets/icon-32.png"/>
-  <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/icon-80.png"/>
+  <IconUrl DefaultValue="https://localhost:3000/assets/link-icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/link-icon-64.png"/>
   <SupportUrl DefaultValue="https://hero.epa.gov/hero/index.cfm/content/contactus"/>
   <AppDomains>
     <AppDomain>epa.gov</AppDomain>
@@ -36,7 +36,7 @@
                 <Icon>
                   <bt:Image size="16" resid="Icon.16x16"/>
                   <bt:Image size="32" resid="Icon.32x32"/>
-                  <bt:Image size="80" resid="Icon.80x80"/>
+                  <bt:Image size="80" resid="Icon.128x128"/>
                 </Icon>
                 <Control xsi:type="Button" id="TaskpaneButton">
                   <Label resid="TaskpaneButton.Label"/>
@@ -47,7 +47,7 @@
                   <Icon>
                     <bt:Image size="16" resid="Icon.16x16"/>
                     <bt:Image size="32" resid="Icon.32x32"/>
-                    <bt:Image size="80" resid="Icon.80x80"/>
+                    <bt:Image size="80" resid="Icon.128x128"/>
                   </Icon>
                   <Action xsi:type="ShowTaskpane">
                     <TaskpaneId>ButtonId1</TaskpaneId>
@@ -62,9 +62,10 @@
     </Hosts>
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16x16" DefaultValue="https://localhost:3000/assets/icon-16.png"/>
-        <bt:Image id="Icon.32x32" DefaultValue="https://localhost:3000/assets/icon-32.png"/>
-        <bt:Image id="Icon.80x80" DefaultValue="https://localhost:3000/assets/icon-80.png"/>
+        <bt:Image id="Icon.16x16" DefaultValue="https://localhost:3000/assets/link-icon-16.png"/>
+        <bt:Image id="Icon.32x32" DefaultValue="https://localhost:3000/assets/link-icon-32.png"/>
+        <bt:Image id="Icon.64x64" DefaultValue="https://localhost:3000/assets/link-icon-64.png"/>
+        <bt:Image id="Icon.128x128" DefaultValue="https://localhost:3000/assets/link-icon-128.png"/>
       </bt:Images>
       <bt:Urls>
         <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://hero.epa.gov/hero/index.cfm/content/basic"/>
@@ -72,13 +73,13 @@
         <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3000/taskpane.html"/>
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="GetStarted.Title" DefaultValue="Get started by "/>
-        <bt:String id="CommandsGroup.Label" DefaultValue="LitCiter"/>
-        <bt:String id="TaskpaneButton.Label" DefaultValue="Open LitCiter Taskpane"/>
+        <bt:String id="GetStarted.Title" DefaultValue="Click here to get started!"/>
+        <bt:String id="CommandsGroup.Label" DefaultValue="LinkCiter"/>
+        <bt:String id="TaskpaneButton.Label" DefaultValue="Open LinkCiter Taskpane"/>
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="LitCiter loaded succesfully. Click the button to open the taskpane."/>
-        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Click to Show a Taskpane"/>
+        <bt:String id="GetStarted.Description" DefaultValue="LinkCiter loaded successfully. Click the button to open the taskpane."/>
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Click to Show the LinkCiter Taskpane."/>
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>
