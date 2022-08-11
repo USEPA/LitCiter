@@ -4,7 +4,7 @@
   <Version>1.0.0.0</Version>
   <ProviderName>US EPA</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="LinkCiter"/>
+  <DisplayName DefaultValue="LitCiter"/>
   <Description DefaultValue="Link a bibliography to HERO."/>
   <IconUrl DefaultValue="https://localhost:3000/assets/link-icon-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/link-icon-64.png"/>
@@ -74,12 +74,12 @@
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="GetStarted.Title" DefaultValue="Click here to get started!"/>
-        <bt:String id="CommandsGroup.Label" DefaultValue="LinkCiter"/>
-        <bt:String id="TaskpaneButton.Label" DefaultValue="Open LinkCiter Taskpane"/>
+        <bt:String id="CommandsGroup.Label" DefaultValue="LitCiter"/>
+        <bt:String id="TaskpaneButton.Label" DefaultValue="Open LitCiter Taskpane"/>
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="LinkCiter loaded successfully. Click the button to open the taskpane."/>
-        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Click to Show the LinkCiter Taskpane."/>
+        <bt:String id="GetStarted.Description" DefaultValue="LitCiter loaded successfully. Click the button to open the taskpane."/>
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Click to Show the LitCiter Taskpane."/>
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>
