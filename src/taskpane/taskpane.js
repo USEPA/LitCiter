@@ -34,6 +34,16 @@ Office.onReady((info) => {
         document.getElementById("link-heronet").disabled = true;
       }
     };
+    document.getElementById("version-text").onclick = function () {
+      if (document.getElementById("debug-enabled").value == "true") {
+        document.getElementById("debug-enabled").value = "false";
+        document.getElementById("debug-marker").textContent = "";
+      } else {
+        document.getElementById("debug-enabled").value = "true";
+        document.getElementById("debug-marker").textContent = " (debug)";
+      }
+    };
+
     document.getElementById("sideload-msg").style.display = "none";
     document.getElementById("app-body").style.display = "flex";
     document.getElementById("progress-text").innerHTML = "Initializing...";
@@ -264,16 +274,18 @@ function assignHeroLink(context, url, thisLink, citationMatching, citationList) 
         thisLink.font.highlightColor = "#FFFF00";
         errStyle = "err";
       }
-      document.getElementById("error-box").innerHTML +=
-        '<p class="p-warn"><span class="style-' +
-        errStyle +
-        '">' +
-        'Hyperlink "' +
-        oldText +
-        '" ("' +
-        oldURL +
-        '")' +
-        " not changed.</span></p>";
+      if (errStyle == "err" || document.getElementById("debug-enabled").value == "true") {
+        document.getElementById("error-box").innerHTML +=
+          '<p class="p-warn"><span class="style-' +
+          errStyle +
+          '">' +
+          'Hyperlink "' +
+          oldText +
+          '" ("' +
+          oldURL +
+          '")' +
+          " not changed.</span></p>";
+      }
     }
   }
 }
