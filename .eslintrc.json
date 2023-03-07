@@ -4,5 +4,8 @@
   ],
   "extends": [
     "plugin:office-addins/recommended"
+  ],
+  "ignorePatterns": [
+    "**/base64.js"
   ]
 }

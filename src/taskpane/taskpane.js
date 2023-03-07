@@ -102,8 +102,9 @@ async function changeCitations(url) {
 
     var body = context.document.body;
     var bodyOoxml = body.getOoxml();
+    bodyOoxml.load("value");
     var linkRanges = body.getRange("Content").getHyperlinkRanges();
-    linkRanges.load("items, hyperlink, text, font");
+    linkRanges.load("items, items/length, hyperlink, text, font");
     await context.sync();
 
     var oParser = new DOMParser();
@@ -258,6 +259,7 @@ function assignHeroLink(context, url, thisLink, citationMatching, citationList) 
   // https://stackoverflow.com/questions/70079971
   var encodedText = encodeURI(thisLink.text).replace(/%\w\w/g, (match) => match.toLowerCase());
   if (oldURL == null || oldText == "") {
+    // do nothing
   } else if (oldURL in citationMatching && oldURL != oldText) {
     var newURL = getURL(url, citationList[citationMatching[oldURL]].label);
     thisLink.hyperlink = newURL;
@@ -552,6 +554,7 @@ function decodeXml(string) {
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function encodeXml(string) {
   // derived from https://stackoverflow.com/questions/7918868
   return string.replace(/(<|>|&|'|")/g, function (c) {
