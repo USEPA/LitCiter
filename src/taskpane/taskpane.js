@@ -112,6 +112,7 @@ async function changeCitations(url) {
     var citationList;
     var citationMatching;
     var bookmarkList;
+    var linkSearch;
 
     // search xml to get citations
     // document.getElementById("error-box").innerHTML += "<p><xmp>" + bodyOoxml.value + "</xmp></p>";
@@ -121,15 +122,19 @@ async function changeCitations(url) {
     bookmarkList = getBibCitations(context, xmlDOM); // returns object with {ENREF: citation text}
     citationMatching = findMatchingCitation(context, citationList, bookmarkList); // object with {ENREF: citation list index}
 
+    var existingLinks = new Object();
     for (var n = 1; n <= linkRanges.items.length; n++) {
       var thisLink = linkRanges.items[n - 1];
+      existingLinks[thisLink.text] = true;
       assignHeroLink(context, url, thisLink, citationMatching, citationList);
     }
 
+    linkSearch = fixLinks(context, body, citationList, citationMatching, existingLinks);
     bibSearch = searchForBibText(context, body, bookmarkList, citationMatching); // search for text ranges based on citation text
     await context.sync();
 
     // find text range to link
+    changeBrokenUrls(context, linkSearch);
     bibSearch3 = findBibTextToLink(context, bibSearch);
     document.getElementById("progress-text").innerHTML = "Adding links to bibliography...";
 
@@ -156,6 +161,39 @@ async function changeCitations(url) {
       document.getElementById("error-box").innerHTML += "Debug info: " + JSON.stringify(error.debugInfo) + "<br/>";
     }
   });
+}
+
+function changeBrokenUrls(context, linkSearch) {
+  // change links
+  for (var a = 0; a < linkSearch.length; a++) {
+    var searchCollection = linkSearch[a];
+    for (var j = 0; j < searchCollection.items.length; j++) {
+      var searchRange = searchCollection.items[j];
+      var thisUrl = searchRange.text;
+      document.getElementById("error-box").innerHTML +=
+        '<p class="p-warn"><span class="style-warn">' + 'Fixing link "' + thisUrl + '."</span></p>';
+      searchRange.hyperlink = thisUrl;
+    }
+  }
+}
+
+function fixLinks(context, body, citationList, citationMatching, existingLinks) {
+  // fix broken DOI links
+  var checkLinks = [];
+  for (var a = 0; a < citationList.length; a++) {
+    var thisUrl = citationList[a].url;
+    if (thisUrl == null || thisUrl == "") {
+      continue;
+    } else if (thisUrl in citationMatching) {
+      continue;
+    } else if (thisUrl in existingLinks) {
+      continue;
+    }
+    var searchResults = body.search(thisUrl, { matchCase: true });
+    searchResults.load("items, text");
+    checkLinks.push(searchResults);
+  }
+  return checkLinks;
 }
 
 function writeBibLinks(context, url, bibSearch3, citationMatching, citationList) {
@@ -588,6 +626,7 @@ function fixCombinedCitations(context, newCitationText, decoded) {
     var thisYear = "";
     var thisLabel = "";
     var thisTitle = "";
+    var thisUrl = "";
 
     var matchLabelTest = matchCitations[ww].match(/<label>(\d{1,})<\/label>/g);
     if (!matchLabelTest) {
@@ -633,6 +672,11 @@ function fixCombinedCitations(context, newCitationText, decoded) {
     if (matchTitle && matchTitleTest && matchTitleTest.length == 1) {
       thisTitle = decodeXml(matchTitle[1]);
     }
+    var matchUrl = matchCitations[ww].match(/<url>([^<>]{1,})<\/url>/);
+    var matchUrlTest = matchCitations[ww].match(/<url>([^<>]{1,})<\/url>/g);
+    if (matchUrl && matchUrlTest && matchUrlTest.length == 1) {
+      thisUrl = decodeXml(matchUrl[1]);
+    }
 
     // don't add if duplicate or blank
     if (thisLabel == "") {
@@ -662,7 +706,7 @@ function fixCombinedCitations(context, newCitationText, decoded) {
       tempList[thisLabel] = [combData];
     }
 
-    var newCitation = { label: thisLabel, author: thisAuthor, year: thisYear, title: thisTitle };
+    var newCitation = { label: thisLabel, author: thisAuthor, year: thisYear, title: thisTitle, url: thisUrl };
     newCitationText.push(newCitation);
   }
   return newCitationText;
