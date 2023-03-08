@@ -138,3 +138,7 @@ b {
 .style-info {
     color: black;
 }
+
+.debug-text {
+    color: red;
+}
