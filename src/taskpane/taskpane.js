@@ -102,7 +102,6 @@ async function changeCitations(url) {
 
     var body = context.document.body;
     var bodyOoxml = body.getOoxml();
-    bodyOoxml.load("value");
     var linkRanges = body.getRange("Content").getHyperlinkRanges();
     linkRanges.load("items, items/length, hyperlink, text, font");
     await context.sync();
@@ -116,6 +115,7 @@ async function changeCitations(url) {
 
     // search xml to get citations
     // document.getElementById("error-box").innerHTML += "<p><xmp>" + bodyOoxml.value + "</xmp></p>";
+    // eslint-disable-next-line office-addins/load-object-before-read
     var xmlDOM = oParser.parseFromString(bodyOoxml.value, "text/xml");
     citationList = getCitationList(context, xmlDOM); // returns array of citation objects
     bookmarkList = getBibCitations(context, xmlDOM); // returns object with {ENREF: citation text}
