@@ -9,10 +9,10 @@ import { Base64 } from "./base64.js";
 
 Office.onReady((info) => {
   if (info.host === Office.HostType.Word) {
-    // Determine if the user's version of Office supports all the Office.js APIs that are used in the tutorial.
+    // Determine if the user's version of Office the required Office.js APIs.
     if (!Office.context.requirements.isSetSupported("WordApi", "1.3")) {
       document.getElementById("error-box").innerHTML +=
-        "Sorry. The tutorial add-in uses Word.js APIs that are not available in your version of Office.<br/>";
+        "Sorry. LitCiter uses Word.js APIs that are not available in your version of Office.<br/>";
     }
 
     // enable extended logging
