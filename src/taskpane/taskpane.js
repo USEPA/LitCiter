@@ -170,8 +170,10 @@ function changeBrokenUrls(context, linkSearch) {
     for (var j = 0; j < searchCollection.items.length; j++) {
       var searchRange = searchCollection.items[j];
       var thisUrl = searchRange.text;
-      document.getElementById("error-box").innerHTML +=
-        '<p class="p-warn"><span class="style-warn">' + 'Fixing link "' + thisUrl + '."</span></p>';
+      if (document.getElementById("debug-enabled").value == "true") {
+        document.getElementById("error-box").innerHTML +=
+          '<p class="p-warn"><span class="style-warn">' + 'Fixing link "' + thisUrl + '."</span></p>';
+      }
       searchRange.hyperlink = thisUrl;
     }
   }
